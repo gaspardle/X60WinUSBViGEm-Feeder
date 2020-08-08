@@ -4,49 +4,15 @@
 #include <cstdint>
 #include "main.h"
 #include <iostream>
+#include <thread>
 
 
-
-BOOL ReadFromBulkEndpoint(WINUSB_INTERFACE_HANDLE hDeviceHandle, UCHAR pID, ULONG cbSize)
-{
-    if (hDeviceHandle == INVALID_HANDLE_VALUE)
-    {
-        return FALSE;
+void doSomething(Controller* c) {
+    while (true) {
+        //printf("do: %d\n", c->get_controller_id());
+        c->ReadAndParse();
+        //Sleep(3000);
     }
-    //WinUsb_SetPipePolicy(hDeviceHandle, pID, PIPE_TRANSFER_TIMEOUT, sizeof(ULONG), 500);
-
-    BOOL bResult = TRUE;
-    UCHAR* szBuffer = (UCHAR*)LocalAlloc(LPTR, sizeof(UCHAR) * cbSize);
-   
-    ULONG cbRead = 0;
-    
-
-    OVERLAPPED overlapped;
-    ZeroMemory(&overlapped, sizeof(overlapped));
-    overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-
-
-    bResult = WinUsb_ReadPipe(hDeviceHandle, pID, szBuffer, cbSize, &cbRead, 0);
-
-    //WinUsb_GetOverlappedResult(hDeviceHandle, &overlapped, &cbRead, TRUE);
-    if (!bResult)
-    {
-        goto done;
-    }
-
-    
-    printf("pipe %d: len: %d : ", pID, cbRead);
-    for (ULONG i = 0; i < cbSize; i++)
-    {
-        printf("%02X ", szBuffer[i]);
-    }
-    printf("\n");
-
-
-done:
-    LocalFree(szBuffer);
-    return bResult;
-
 }
 
 
@@ -123,26 +89,6 @@ Routine description:
         deviceDesc.idProduct,
         deviceDesc.bcdUSB);
 
-    //PIPE_ID pipeid;
-    //bResult = QueryDeviceEndpoints(deviceData.WinusbHandle, &pipeid);
-    // 
-    //for (int i = 0; i < 7; i++) {  
-    //    WINUSB_INTERFACE_HANDLE intHandle;
-    //    ZeroMemory(&intHandle, sizeof(WINUSB_INTERFACE_HANDLE));
-    //    WinUsb_GetAssociatedInterface(deviceData.WinusbHandle, (UCHAR)i, &intHandle);
-
-    //    bResult = QueryDeviceEndpoints(intHandle, &pipeid);
-
-    //    WinUsb_Free(intHandle);
-    //    if (FALSE == bResult) {
-
-    //        wprintf(L"QueryDeviceEndpoints: Error among LastError %d\n",
-    //            FALSE == bResult ? GetLastError() : 0);
-    //        CloseDevice(&deviceData);
-    //        return 0;
-    //    }
-    //}
-
     Controller* ctrls[4];
 
     ctrls[0] = new Controller(deviceData.WinusbHandle, 0);
@@ -151,15 +97,42 @@ Routine description:
         WINUSB_INTERFACE_HANDLE intHandle;
         ZeroMemory(&intHandle, sizeof(WINUSB_INTERFACE_HANDLE));
         WinUsb_GetAssociatedInterface(deviceData.WinusbHandle, (UCHAR)i*2, &intHandle);
-        ctrls[i] = new Controller(deviceData.WinusbHandle, 0);
+        ctrls[i] = new Controller(intHandle, i);
         //ctrls[i] = std::make_shared<Controller>(deviceData.WinusbHandle, 0);
     }
 
-    ctrls[0]->Start();
-    
+    std::thread t1(doSomething, ctrls[0]);
+    std::thread t2(doSomething, ctrls[1]);
+    std::thread t3(doSomething, ctrls[2]);
+    std::thread t4(doSomething, ctrls[3]);
 
+    //t1.join();
+    //t2.join();
+
+    while (!(GetAsyncKeyState(VK_ESCAPE) & 0x8000))
+    {
+        printf("doing things");
+       // ret = vigem_target_x360_update(client, x360, report);
+       // report.bLeftTrigger++;
+        Sleep(1000);
+    }
+   
+    DWORD tresult = ::TerminateThread(t1.native_handle(), 1);
+    tresult = ::TerminateThread(t2.native_handle(), 1);
+    tresult = ::TerminateThread(t3.native_handle(), 1);
+    tresult = ::TerminateThread(t4.native_handle(), 1);
+
+    t1.std::thread::~thread();
+    t2.std::thread::~thread();
+    t3.std::thread::~thread();
+    t4.std::thread::~thread();
+    //Sleep(10000)
     
-    //Sleep(10000);
+    /*delete ctrls[1];
+    delete ctrls[2];
+    delete ctrls[3];
+    delete ctrls[0];*/
+
     CloseDevice(&deviceData);
     return 0;
 }

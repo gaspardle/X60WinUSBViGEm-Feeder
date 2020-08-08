@@ -116,8 +116,8 @@ Return value:
         //
         return;
     }
-
-    WinUsb_Free(DeviceData->WinusbHandle);
+    
+   // WinUsb_Free(DeviceData->WinusbHandle);
     CloseHandle(DeviceData->DeviceHandle);
     DeviceData->HandlesOpen = FALSE;
 

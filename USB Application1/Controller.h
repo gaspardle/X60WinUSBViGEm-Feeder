@@ -17,8 +17,10 @@ public:
     virtual ~Controller();
 
     bool Start();
+    BOOL ReadAndParse();
     bool ParseMessage(const uint8_t* data, int len);
-    void Controller::set_led_real(uint8_t status);
+    void set_led_real(uint8_t status);
+    UINT get_controller_id();
     //void set_rumble_real(uint8_t left, uint8_t right);
     //void set_led_real(uint8_t status);
     //uint8_t get_battery_status() const;

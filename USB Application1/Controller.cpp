@@ -2,6 +2,7 @@
 
 #include "pch.h"
 #include <iostream>
+#include <thread>
 
 //#include "device.h"
 
@@ -24,6 +25,11 @@ bool Controller::Start(){
     while (true) {
         ReadFromBulkEndpoint(m_interface, m_endpoints.PipeInId, 32);
     }
+
+}
+
+UINT Controller::get_controller_id() {
+    return m_controller_id;
 }
 
 BOOL Controller::ReadFromBulkEndpoint(WINUSB_INTERFACE_HANDLE hDeviceHandle, UCHAR pID, ULONG cbSize)
@@ -78,7 +84,9 @@ void Controller::set_led_real(uint8_t status)
     bResult = WinUsb_WritePipe(m_interface, m_endpoints.PipeOutId, ledcmd, sizeof(ledcmd), &cbTransferred, 0);
 
 }
-
+BOOL Controller::ReadAndParse() {
+    return ReadFromBulkEndpoint(m_interface, m_endpoints.PipeInId, 32);
+}
 bool Controller::ParseMessage(const uint8_t* data, int len)
 {
     if (len == 2 && data[0] == 0x08)
