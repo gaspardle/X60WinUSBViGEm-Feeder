@@ -22,6 +22,15 @@ typedef struct _DEVICE_DATA {
 
 } DEVICE_DATA, *PDEVICE_DATA;
 
+
+struct PIPE_ID
+{
+    UCHAR  PipeInId;
+    UCHAR  PipeOutId;
+};
+
+
+
 HRESULT
 OpenDevice(
     _Out_     PDEVICE_DATA DeviceData,
@@ -32,3 +41,5 @@ VOID
 CloseDevice(
     _Inout_ PDEVICE_DATA DeviceData
     );
+
+BOOL QueryDeviceEndpoints(WINUSB_INTERFACE_HANDLE hDeviceHandle, PIPE_ID* pipeid);

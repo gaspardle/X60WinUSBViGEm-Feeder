@@ -9,6 +9,8 @@ RetrieveDevicePath(
     _Out_opt_             PBOOL  FailureDeviceNotFound
     );
 
+
+
 HRESULT
 OpenDevice(
     _Out_     PDEVICE_DATA DeviceData,
@@ -232,4 +234,76 @@ Return value:
     HeapFree(GetProcessHeap(), 0, DeviceInterfaceList);
 
     return hr;
+}
+
+BOOL QueryDeviceEndpoints(WINUSB_INTERFACE_HANDLE hDeviceHandle, PIPE_ID* pipeid)
+{
+    if (hDeviceHandle == INVALID_HANDLE_VALUE)
+    {
+        return FALSE;
+    }
+
+    BOOL bResult = TRUE;
+
+    USB_INTERFACE_DESCRIPTOR InterfaceDescriptor;
+    ZeroMemory(&InterfaceDescriptor, sizeof(USB_INTERFACE_DESCRIPTOR));
+
+    WINUSB_PIPE_INFORMATION  Pipe;
+    ZeroMemory(&Pipe, sizeof(WINUSB_PIPE_INFORMATION));
+
+
+    bResult = WinUsb_QueryInterfaceSettings(hDeviceHandle, 0, &InterfaceDescriptor);
+
+    if (bResult)
+    {
+        for (int index = 0; index < InterfaceDescriptor.bNumEndpoints; index++)
+        {
+            bResult = WinUsb_QueryPipe(hDeviceHandle, 0, (UCHAR)index, &Pipe);
+
+            if (bResult)
+            {
+                if (Pipe.PipeType == UsbdPipeTypeControl)
+                {
+                    printf("Endpoint index: %d Pipe type: %d Control, Pipe ID: %x.\n", index, Pipe.PipeType, Pipe.PipeId);
+                }
+                if (Pipe.PipeType == UsbdPipeTypeIsochronous)
+                {
+                    printf("Endpoint index: %d Pipe type: %d Isochronous, Pipe ID: %x.\n", index, Pipe.PipeType, Pipe.PipeId);
+                }
+                if (Pipe.PipeType == UsbdPipeTypeBulk)
+                {
+                    if (USB_ENDPOINT_DIRECTION_IN(Pipe.PipeId))
+                    {
+                        printf("Endpoint index: %d Pipe type: %d Bulk, Pipe ID: %x.\n", index, Pipe.PipeType, Pipe.PipeId);
+                        pipeid->PipeInId = Pipe.PipeId;
+                    }
+                    if (USB_ENDPOINT_DIRECTION_OUT(Pipe.PipeId))
+                    {
+                        printf("Endpoint index: %d Pipe type: %d Bulk, Pipe ID: %x.\n", index, Pipe.PipeType, Pipe.PipeId);
+                        pipeid->PipeOutId = Pipe.PipeId;
+                    }
+
+                }
+                if (Pipe.PipeType == UsbdPipeTypeInterrupt)
+                {
+                    if (USB_ENDPOINT_DIRECTION_IN(Pipe.PipeId))
+                    {
+                        printf("Endpoint IN index: %d Pipe type: %d Interrupt, Pipe ID: %x.\n", index, Pipe.PipeType, Pipe.PipeId);
+                        pipeid->PipeInId = Pipe.PipeId;
+                    }
+                    if (USB_ENDPOINT_DIRECTION_OUT(Pipe.PipeId))
+                    {
+                        printf("Endpoint OUT index: %d Pipe type: %d Interrupt, Pipe ID: %x.\n", index, Pipe.PipeType, Pipe.PipeId);
+                        pipeid->PipeOutId = Pipe.PipeId;
+                    }
+                }
+            }
+            else
+            {
+                continue;
+            }
+        }
+    }
+
+    return bResult;
 }
