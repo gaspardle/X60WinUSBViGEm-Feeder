@@ -14,12 +14,17 @@ m_controller_id(controller_id)
     int bResult;    
     bResult = QueryDeviceEndpoints(hDev, &m_endpoints);
 
-    ULONG timeout = 100;
+    ULONG timeout = 60;
     ULONG raw = 1;
     WinUsb_SetPipePolicy(hDev, m_endpoints.PipeInId, PIPE_TRANSFER_TIMEOUT, sizeof(ULONG), &timeout);
     WinUsb_SetPipePolicy(hDev, m_endpoints.PipeInId, RAW_IO, sizeof(ULONG), &raw);
 
-    emulated_controller = new VigemController(controller_id);
+    emulated_controller = new VigemController(controller_id,     
+        [&](uint8_t large, uint8_t small, uint8_t led) {         
+            set_led(led + 2);
+            set_rumble(large, small);
+        }
+     );
 }
 
 Controller::~Controller()
@@ -56,13 +61,11 @@ BOOL Controller::ReadFromBulkEndpoint(WINUSB_INTERFACE_HANDLE hDeviceHandle, UCH
     BOOL bResult = FALSE;
     //BOOL oResult = FALSE;
     UCHAR* szBuffer = (UCHAR*)LocalAlloc(LPTR, sizeof(UCHAR) * cbSize);
-
     ULONG cbRead = 0;
 
-
-    OVERLAPPED overlapped;
-    ZeroMemory(&overlapped, sizeof(overlapped));
-    overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+    //OVERLAPPED overlapped;
+    //ZeroMemory(&overlapped, sizeof(overlapped));
+    //overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 
 
     bResult = WinUsb_ReadPipe(hDeviceHandle, pID, szBuffer, cbSize, &cbRead, 0 /*&overlapped*/);     
@@ -86,12 +89,12 @@ BOOL Controller::ReadFromBulkEndpoint(WINUSB_INTERFACE_HANDLE hDeviceHandle, UCH
         goto done;
     }
     */
-    printf("id %d: len: %d : ", m_controller_id, cbRead);
+  /*  printf("id %d: len: %d : ", m_controller_id, cbRead);
     for (ULONG i = 0; i < cbRead; i++)
     {
         printf("%02X ", szBuffer[i]);
     }
-    printf("\n");
+    printf("\n");*/
     ParseMessage(szBuffer, cbRead);
     
 done:
@@ -100,16 +103,25 @@ done:
 
 }
 //
-
-void Controller::set_led_real(uint8_t status)
+void Controller::set_rumble(uint8_t left, uint8_t right)
 {
+    BOOL bResult = TRUE;
+    ULONG cbTransferred = 0;
+    uint8_t rumblecmd[] = { 0x00, 0x01, 0x0f, 0xc0, 0x00, left, right, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    bResult = WinUsb_WritePipe(m_interface, m_endpoints.PipeOutId, rumblecmd, sizeof(rumblecmd), &cbTransferred, 0);    
+}
+
+
+void Controller::set_led(uint8_t status)
+{
+    printf("set_led: %d\n", status);
     BOOL bResult = TRUE;
     ULONG cbTransferred = 0;
 
     uint8_t ledcmd[] = { 0x00, 0x00, 0x08, static_cast<uint8_t>(0x40 + (status % 0x0e)), 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
     bResult = WinUsb_WritePipe(m_interface, m_endpoints.PipeOutId, ledcmd, sizeof(ledcmd), &cbTransferred, 0);
-
 }
+
 BOOL Controller::ReadAndParse() {
     return ReadFromBulkEndpoint(m_interface, m_endpoints.PipeInId, 32);
 }
@@ -121,18 +133,13 @@ bool Controller::ParseMessage(const uint8_t* data, int len)
         if (data[1] == 0x00)
         {
             printf("connection status: not connected\n");
-
-            // reset the controller into neutral position on disconnect
-            //msg_out->clear();
-            //set_active(false);
             emulated_controller->Stop();
-            //return true;
         }
         else if (data[1] == 0x80)
         {
             printf("connection status: controller connected\n");            
             emulated_controller->Start();
-            set_led_real(2 + m_controller_id % 4);          
+           // set_led_real(2 + m_controller_id % 4);          
         }
         else if (data[1] == 0x40)
         {
@@ -142,7 +149,7 @@ bool Controller::ParseMessage(const uint8_t* data, int len)
         {
             printf("Connection status: controller and headset connected\n");            
             emulated_controller->Start();
-            set_led_real(2 + m_controller_id % 4);
+            //set_led_real(2 + m_controller_id % 4);
         }
         else
         {
@@ -164,12 +171,12 @@ bool Controller::ParseMessage(const uint8_t* data, int len)
             */
         m_battery_status = data[17];
        
-        std::cout << "Battery status: \n" << m_battery_status;
+        printf("Battery status0f: %d\n", m_battery_status);
     }
     else if (data[1] == 0x00 && data[3] == 0x13)
     { 
         m_battery_status = data[4];
-        printf("Battery status: %d\n", data[4]);
+        printf("Battery status00: %d\n", m_battery_status);
     }
     else if (data[1] == 0x00 && data[2] == 0x00 && data[3] == 0xf0)
     {
@@ -205,7 +212,7 @@ bool Controller::ParseMessage(const uint8_t* data, int len)
     }   
     else
     {
-        printf("unknown: \n");
+        printf("unknown command \n");
     }
 
    

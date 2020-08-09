@@ -96,18 +96,16 @@ LONG __cdecl _tmain(LONG Argc, LPTSTR* Argv)
         deviceDesc.idVendor,
         deviceDesc.idProduct,
         deviceDesc.bcdUSB);
-
-
-    
+            
 
     Controller* ctrls[4];
-
     ctrls[0] = new Controller(deviceData.WinusbHandle, 0);
 
     for (int i = 1; i < 4; i++) {
         WINUSB_INTERFACE_HANDLE intHandle;
         ZeroMemory(&intHandle, sizeof(WINUSB_INTERFACE_HANDLE));
-        WinUsb_GetAssociatedInterface(deviceData.WinusbHandle, (UCHAR)i * 2, &intHandle);
+        WinUsb_GetAssociatedInterface(deviceData.WinusbHandle, (UCHAR)(i * 2) - 1, &intHandle);
+        
         ctrls[i] = new Controller(intHandle, i);
     }
 

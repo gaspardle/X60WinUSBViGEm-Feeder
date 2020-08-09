@@ -1,14 +1,17 @@
-#include "pch.h"
 
+#include "pch.h"
 #include "VigemController.h"
+
 #include <functional>
 #include <iostream>
 #include <mutex>
 
-VigemController::VigemController(int controller_id):
-    connected(false)
+VigemController::VigemController(/*,*/ int controller_id, NotifFunc cb):
+    connected(false),
+    m_controller_id(controller_id),    
+    notification_callback(cb)
 {
-    controller_id;
+
     client = vigem_alloc();
     target_x360 = vigem_target_x360_alloc();
 }
@@ -29,15 +32,16 @@ bool VigemController::Start()
         return false;
     }
 
+    auto id = vigem_target_get_index(target_x360);
+    printf("starting emu controller t_id: %d\n", id);
+
     connected = true;
 
-    ret = vigem_target_x360_register_notification(client, target_x360, reinterpret_cast<PFN_VIGEM_X360_NOTIFICATION>(&VigemController::notification), nullptr);
-    //ret = vigem_target_x360_register_notification(client, target_x360, &VigemController::notification, nullptr);
-    
+    ret = vigem_target_x360_register_notification(client, target_x360, reinterpret_cast<PFN_VIGEM_X360_NOTIFICATION>(&VigemController::notification), this);
+       
     return false;
 }
 
-static std::mutex m;
 VOID CALLBACK VigemController::notification(
     PVIGEM_CLIENT Client,
     PVIGEM_TARGET Target,
@@ -46,19 +50,9 @@ VOID CALLBACK VigemController::notification(
     UCHAR LedNumber,
     LPVOID UserData
 )
-{
-    //m.lock();
-    printf("notif led:%d\n", LedNumber);
-    /*static int count = 1;
-
-    std::cout.width(3);
-    std::cout << count++ << " ";
-    std::cout.width(3);
-    std::cout << (int)LargeMotor << " ";
-    std::cout.width(3);
-    std::cout << (int)SmallMotor << std::endl;
-    */
-    //m.unlock();
+{    
+    VigemController* inst = (VigemController*)UserData;
+    inst->notification_callback(LargeMotor, SmallMotor, LedNumber);
 }
 bool VigemController::Stop()
 {
@@ -80,6 +74,8 @@ VigemController::~VigemController()
     vigem_free(client);
 }
 
+
+
 bool VigemController::Update(x360_report_t& nativereport)
 {
     if (!connected) {
@@ -93,7 +89,7 @@ bool VigemController::Update(x360_report_t& nativereport)
     report.wButtons = _byteswap_ushort(nativereport.buttons);
     report.sThumbLX = nativereport.x;
     report.sThumbLY = nativereport.y;
-    report.sThumbRX = nativereport.ry;
+    report.sThumbRX = nativereport.rx;
     report.sThumbRY = nativereport.ry;
 
     auto ret = vigem_target_x360_update(client, target_x360, report);

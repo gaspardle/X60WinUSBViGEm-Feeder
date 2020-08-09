@@ -11,6 +11,7 @@ private:
     WINUSB_INTERFACE_HANDLE  m_interface;
     int  m_battery_status;
     BOOL Controller::ReadFromBulkEndpoint(WINUSB_INTERFACE_HANDLE hDeviceHandle, UCHAR pID, ULONG cbSize);
+   
     PIPE_ID m_endpoints;
     VigemController* emulated_controller;
 
@@ -21,7 +22,8 @@ public:
     bool Start();
     BOOL ReadAndParse();
     bool ParseMessage(const uint8_t* data, int len);
-    void set_led_real(uint8_t status);
+    void set_led(uint8_t status);
+    void set_rumble(uint8_t left, uint8_t right);
     UINT get_controller_id();
     //void set_rumble_real(uint8_t left, uint8_t right);
     //void set_led_real(uint8_t status);
