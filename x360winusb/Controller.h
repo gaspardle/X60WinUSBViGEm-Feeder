@@ -19,7 +19,6 @@ public:
     Controller(WINUSB_INTERFACE_HANDLE hDev, int controller_id);
     virtual ~Controller();
 
-    bool Start();
     BOOL ReadAndParse();
     bool ParseMessage(const uint8_t* data, int len);
     void set_led(uint8_t status);

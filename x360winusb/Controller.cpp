@@ -20,9 +20,9 @@ m_controller_id(controller_id)
     WinUsb_SetPipePolicy(hDev, m_endpoints.PipeInId, RAW_IO, sizeof(ULONG), &raw);
 
     emulated_controller = new VigemController(controller_id,     
-        [&](uint8_t large, uint8_t small, uint8_t led) {         
-            set_led(led + 2);
+        [&](uint8_t large, uint8_t small, uint8_t led) {
             set_rumble(large, small);
+            set_led(led + 2);
         }
      );
 }
@@ -32,12 +32,6 @@ Controller::~Controller()
     emulated_controller->Stop();
     delete emulated_controller;
     WinUsb_Free(m_interface);
-}
-
-bool Controller::Start(){
-    while (true) {
-        ReadFromBulkEndpoint(m_interface, m_endpoints.PipeInId, 32);
-    }
 }
 
 UINT Controller::get_controller_id() {
@@ -125,10 +119,12 @@ void Controller::set_led(uint8_t status)
 BOOL Controller::ReadAndParse() {
     return ReadFromBulkEndpoint(m_interface, m_endpoints.PipeInId, 32);
 }
+
 bool Controller::ParseMessage(const uint8_t* data, int len)
 {
+   
     if (len == 2 && data[0] == 0x08)
-    { 
+    {   
         // Connection status
         if (data[1] == 0x00)
         {
@@ -138,8 +134,7 @@ bool Controller::ParseMessage(const uint8_t* data, int len)
         else if (data[1] == 0x80)
         {
             printf("connection status: controller connected\n");            
-            emulated_controller->Start();
-           // set_led_real(2 + m_controller_id % 4);          
+            emulated_controller->Start();       
         }
         else if (data[1] == 0x40)
         {
@@ -149,7 +144,6 @@ bool Controller::ParseMessage(const uint8_t* data, int len)
         {
             printf("Connection status: controller and headset connected\n");            
             emulated_controller->Start();
-            //set_led_real(2 + m_controller_id % 4);
         }
         else
         {
@@ -158,19 +152,7 @@ bool Controller::ParseMessage(const uint8_t* data, int len)
     }
     else if (data[1] == 0x0f && data[2] == 0x00 && data[3] == 0xf0)
     { 
-        // Initial
-        /*m_serial = (boost::format("%2x:%2x:%2x:%2x:%2x:%2x:%2x")
-            % int(data[7])
-            % int(data[8])
-            % int(data[9])
-            % int(data[10])
-            % int(data[11])
-            % int(data[12])
-            % int(data[13])).str();
-         printf("Serial: %s\n", "xxx");
-            */
-        m_battery_status = data[17];
-       
+        m_battery_status = data[17];       
         printf("Battery status0f: %d\n", m_battery_status);
     }
     else if (data[1] == 0x00 && data[3] == 0x13)
@@ -181,8 +163,9 @@ bool Controller::ParseMessage(const uint8_t* data, int len)
     else if (data[1] == 0x00 && data[2] == 0x00 && data[3] == 0xf0)
     {
         // not useful
+        //printf("notuseful\n");
     }
-    else if (data[1] == 0x01 /*&& data[2] == 0x00*/ && data[3] == 0xf0)
+    else if (data[1] == 0x01 && data[3] == 0xf0)
     {
         emulated_controller->Start();
 

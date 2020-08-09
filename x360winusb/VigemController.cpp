@@ -6,7 +6,7 @@
 #include <iostream>
 #include <mutex>
 
-VigemController::VigemController(/*,*/ int controller_id, NotifFunc cb):
+VigemController::VigemController(int controller_id, NotifFunc cb):
     connected(false),
     m_controller_id(controller_id),    
     notification_callback(cb)
@@ -24,16 +24,18 @@ bool VigemController::Start()
     
     auto ret = vigem_connect(client);
     if (!VIGEM_SUCCESS(ret) && ret != VIGEM_ERROR_BUS_ALREADY_CONNECTED) {
+        printf("vigem_connect ERROR %d", ret);
         return false;
     }
        
     ret = vigem_target_add(client, target_x360);
     if (!VIGEM_SUCCESS(ret)) {
+        printf("Can't add target device ERROR %d", ret);
         return false;
     }
 
     auto id = vigem_target_get_index(target_x360);
-    printf("starting emu controller t_id: %d\n", id);
+    printf("Starting target-id: %d\n", id);
 
     connected = true;
 
@@ -73,8 +75,6 @@ VigemController::~VigemController()
 
     vigem_free(client);
 }
-
-
 
 bool VigemController::Update(x360_report_t& nativereport)
 {
