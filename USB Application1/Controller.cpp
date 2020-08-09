@@ -32,6 +32,11 @@ UINT Controller::get_controller_id() {
     return m_controller_id;
 }
 
+VOID WINAPI callbOverlappedCompletionRoutine(DWORD dwErrorCode, DWORD dwNumberOfBytesTransferred, LPOVERLAPPED pOverlapped) {
+ auto c = pOverlapped;
+ c=c;
+    printf("callb %d  %d \n ", dwErrorCode, dwNumberOfBytesTransferred);
+}
 BOOL Controller::ReadFromBulkEndpoint(WINUSB_INTERFACE_HANDLE hDeviceHandle, UCHAR pID, ULONG cbSize)
 {
     if (hDeviceHandle == INVALID_HANDLE_VALUE)
@@ -40,7 +45,8 @@ BOOL Controller::ReadFromBulkEndpoint(WINUSB_INTERFACE_HANDLE hDeviceHandle, UCH
     }
     //WinUsb_SetPipePolicy(hDeviceHandle, pID, PIPE_TRANSFER_TIMEOUT, sizeof(ULONG), 500);
 
-    BOOL bResult = TRUE;
+    BOOL bResult = FALSE;
+    //BOOL oResult = FALSE;
     UCHAR* szBuffer = (UCHAR*)LocalAlloc(LPTR, sizeof(UCHAR) * cbSize);
 
     ULONG cbRead = 0;
@@ -51,23 +57,28 @@ BOOL Controller::ReadFromBulkEndpoint(WINUSB_INTERFACE_HANDLE hDeviceHandle, UCH
     overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 
 
-    bResult = WinUsb_ReadPipe(hDeviceHandle, pID, szBuffer, cbSize, &cbRead, 0);
-
-    //WinUsb_GetOverlappedResult(hDeviceHandle, &overlapped, &cbRead, TRUE);
-    if (!bResult)
+    bResult = WinUsb_ReadPipe(hDeviceHandle, pID, szBuffer, cbSize, &cbRead, &overlapped);       
+    if (!bResult && GetLastError() != ERROR_IO_PENDING)
     {
         goto done;
     }
 
+    BindIoCompletionCallback(hDeviceHandle, callbOverlappedCompletionRoutine, 0);
+   /* oResult = WinUsb_GetOverlappedResult(hDeviceHandle, &overlapped, &cbRead, FALSE);
+    auto x= GetLastError();
+    if (oResult == FALSE && (x == ERROR_IO_PENDING || x == ERROR_IO_INCOMPLETE)) {
+       // printf("not ready \n ");
+        goto done;
+    }
 
     printf("id %d: len: %d : ", m_controller_id, cbRead);
-    for (ULONG i = 0; i < cbSize; i++)
+    for (ULONG i = 0; i < cbRead; i++)
     {
         printf("%02X ", szBuffer[i]);
     }
     printf("\n");
     ParseMessage(szBuffer, cbRead);
-
+    */
 done:
     LocalFree(szBuffer);
     return bResult;
