@@ -5,29 +5,36 @@
 #include "main.h"
 #include <iostream>
 #include <thread>
+#include <ViGEm\Client.h>
 
+bool processInputs = true;
 
 void doSomething(Controller* c) {
-    while (true) {
+    while (processInputs) {
         //printf("do: %d\n", c->get_controller_id());
         c->ReadAndParse();
         //Sleep(3000);
     }
 }
 
+BOOL WINAPI CtrlHandler(DWORD fdwCtrlType)
+{
+    switch (fdwCtrlType)
+    {
+    case CTRL_C_EVENT:
+    case CTRL_CLOSE_EVENT:
+        printf("Exiting...\n\n");
+        processInputs = false;
+        Sleep(5000);
+        return TRUE;
 
-LONG __cdecl
-_tmain(
-    LONG     Argc,
-    LPTSTR * Argv
-    )
-/*++
+    default:
+        return FALSE;
+    }
+}
 
-Routine description:
+LONG __cdecl _tmain(LONG Argc, LPTSTR* Argv)
 
-    Sample program that communicates with a USB device using WinUSB
-
---*/
 {
     DEVICE_DATA           deviceData;
     HRESULT               hr;
@@ -53,7 +60,8 @@ Routine description:
 
             wprintf(L"Device not connected or driver not installed\n");
 
-        } else {
+        }
+        else {
 
             wprintf(L"Failed looking for device, HRESULT 0x%x\n", hr);
         }
@@ -65,18 +73,18 @@ Routine description:
     // Get device descriptor
     //
     bResult = WinUsb_GetDescriptor(deviceData.WinusbHandle,
-                                   USB_DEVICE_DESCRIPTOR_TYPE,
-                                   0,
-                                   0,
-                                   (PBYTE) &deviceDesc,
-                                   sizeof(deviceDesc),
-                                   &lengthReceived);
+        USB_DEVICE_DESCRIPTOR_TYPE,
+        0,
+        0,
+        (PBYTE)&deviceDesc,
+        sizeof(deviceDesc),
+        &lengthReceived);
 
     if (FALSE == bResult || lengthReceived != sizeof(deviceDesc)) {
 
         wprintf(L"WinUsb_GetDescriptor: Error among LastError %d or lengthReceived %d\n",
-                FALSE == bResult ? GetLastError() : 0,
-                lengthReceived);
+            FALSE == bResult ? GetLastError() : 0,
+            lengthReceived);
         CloseDevice(&deviceData);
         return 0;
     }
@@ -89,16 +97,18 @@ Routine description:
         deviceDesc.idProduct,
         deviceDesc.bcdUSB);
 
+
+    
+
     Controller* ctrls[4];
 
     ctrls[0] = new Controller(deviceData.WinusbHandle, 0);
-   
-    for (int i=1;i<4;i++) {
+
+    for (int i = 1; i < 4; i++) {
         WINUSB_INTERFACE_HANDLE intHandle;
         ZeroMemory(&intHandle, sizeof(WINUSB_INTERFACE_HANDLE));
-        WinUsb_GetAssociatedInterface(deviceData.WinusbHandle, (UCHAR)i*2, &intHandle);
+        WinUsb_GetAssociatedInterface(deviceData.WinusbHandle, (UCHAR)i * 2, &intHandle);
         ctrls[i] = new Controller(intHandle, i);
-        //ctrls[i] = std::make_shared<Controller>(deviceData.WinusbHandle, 0);
     }
 
     std::thread t1(doSomething, ctrls[0]);
@@ -106,32 +116,27 @@ Routine description:
     std::thread t3(doSomething, ctrls[2]);
     std::thread t4(doSomething, ctrls[3]);
 
-    //t1.join();
-    //t2.join();
 
-    while (!(GetAsyncKeyState(VK_ESCAPE) & 0x8000))
-    {
-        printf("doing things");
-       // ret = vigem_target_x360_update(client, x360, report);
-       // report.bLeftTrigger++;
-        Sleep(1000);
-    }
-   
-    DWORD tresult = ::TerminateThread(t1.native_handle(), 1);
-    tresult = ::TerminateThread(t2.native_handle(), 1);
-    tresult = ::TerminateThread(t3.native_handle(), 1);
-    tresult = ::TerminateThread(t4.native_handle(), 1);
+    //while (!(GetAsyncKeyState(VK_ESCAPE) & 0x8000))
+    //{
+    //    //printf("doing things");
+    //   // ret = vigem_target_x360_update(client, x360, report);
+    //   // report.bLeftTrigger++;
+    //    Sleep(1000);
+    //}
+    //Running = false;
 
-    t1.std::thread::~thread();
-    t2.std::thread::~thread();
-    t3.std::thread::~thread();
-    t4.std::thread::~thread();
-    //Sleep(10000)
+    SetConsoleCtrlHandler(CtrlHandler, TRUE);
+
+    t1.join();
+    t2.join();
+    t3.join();
+    t4.join();
     
-    /*delete ctrls[1];
+    delete ctrls[0];
+    delete ctrls[1];
     delete ctrls[2];
-    delete ctrls[3];
-    delete ctrls[0];*/
+    delete ctrls[3];      
 
     CloseDevice(&deviceData);
     return 0;

@@ -1,6 +1,7 @@
 #pragma once
 #include <winusb.h>
 #include <cstdint>
+#include "VigemController.h"
 
 class Controller
 {
@@ -11,6 +12,7 @@ private:
     int  m_battery_status;
     BOOL Controller::ReadFromBulkEndpoint(WINUSB_INTERFACE_HANDLE hDeviceHandle, UCHAR pID, ULONG cbSize);
     PIPE_ID m_endpoints;
+    VigemController* emulated_controller;
 
 public:
     Controller(WINUSB_INTERFACE_HANDLE hDev, int controller_id);

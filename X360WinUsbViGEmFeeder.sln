@@ -4,8 +4,16 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 16.0.30204.135
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "x360winusb", "x360winusb\x360winusb.vcxproj", "{58553916-A0EC-4D51-A37F-3E36E9C307E9}"
+	ProjectSection(ProjectDependencies) = postProject
+		{7DB06674-1F4F-464B-8E1C-172E9587F9DC} = {7DB06674-1F4F-464B-8E1C-172E9587F9DC}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ViGEmClient", "ViGEmClient\src\ViGEmClient.vcxproj", "{7DB06674-1F4F-464B-8E1C-172E9587F9DC}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{54DFBE6A-A35F-4C34-AC48-DFDD232A96B9}"
+	ProjectSection(SolutionItems) = preProject
+		readme.md = readme.md
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -100,8 +108,8 @@ Global
 		{7DB06674-1F4F-464B-8E1C-172E9587F9DC}.Debug|ARM.Build.0 = Debug_DLL|x64
 		{7DB06674-1F4F-464B-8E1C-172E9587F9DC}.Debug|ARM64.ActiveCfg = Debug_DLL|x64
 		{7DB06674-1F4F-464B-8E1C-172E9587F9DC}.Debug|ARM64.Build.0 = Debug_DLL|x64
-		{7DB06674-1F4F-464B-8E1C-172E9587F9DC}.Debug|x64.ActiveCfg = Debug_DLL|x64
-		{7DB06674-1F4F-464B-8E1C-172E9587F9DC}.Debug|x64.Build.0 = Debug_DLL|x64
+		{7DB06674-1F4F-464B-8E1C-172E9587F9DC}.Debug|x64.ActiveCfg = Debug_LIB|x64
+		{7DB06674-1F4F-464B-8E1C-172E9587F9DC}.Debug|x64.Build.0 = Debug_LIB|x64
 		{7DB06674-1F4F-464B-8E1C-172E9587F9DC}.Debug|x86.ActiveCfg = Debug_LIB|Win32
 		{7DB06674-1F4F-464B-8E1C-172E9587F9DC}.Debug|x86.Build.0 = Debug_LIB|Win32
 		{7DB06674-1F4F-464B-8E1C-172E9587F9DC}.Release_DLL|ARM.ActiveCfg = Release_DLL|Win32

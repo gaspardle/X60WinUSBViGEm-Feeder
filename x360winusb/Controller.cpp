@@ -3,21 +3,29 @@
 #include "pch.h"
 #include <iostream>
 #include <thread>
-
+#include <ViGEm/Client.h>
+#include "Xbox.h"
 //#include "device.h"
-
 
 Controller::Controller(WINUSB_INTERFACE_HANDLE hDev, int controller_id):
 m_interface(hDev),
 m_controller_id(controller_id)
 {
-    int bResult;
-    m_controller_id = controller_id;
+    int bResult;    
     bResult = QueryDeviceEndpoints(hDev, &m_endpoints);
+
+    ULONG timeout = 100;
+    ULONG raw = 1;
+    WinUsb_SetPipePolicy(hDev, m_endpoints.PipeInId, PIPE_TRANSFER_TIMEOUT, sizeof(ULONG), &timeout);
+    WinUsb_SetPipePolicy(hDev, m_endpoints.PipeInId, RAW_IO, sizeof(ULONG), &raw);
+
+    emulated_controller = new VigemController(controller_id);
 }
 
 Controller::~Controller()
 {
+    emulated_controller->Stop();
+    delete emulated_controller;
     WinUsb_Free(m_interface);
 }
 
@@ -25,7 +33,6 @@ bool Controller::Start(){
     while (true) {
         ReadFromBulkEndpoint(m_interface, m_endpoints.PipeInId, 32);
     }
-
 }
 
 UINT Controller::get_controller_id() {
@@ -37,13 +44,14 @@ VOID WINAPI callbOverlappedCompletionRoutine(DWORD dwErrorCode, DWORD dwNumberOf
  c=c;
     printf("callb %d  %d \n ", dwErrorCode, dwNumberOfBytesTransferred);
 }
+
 BOOL Controller::ReadFromBulkEndpoint(WINUSB_INTERFACE_HANDLE hDeviceHandle, UCHAR pID, ULONG cbSize)
 {
     if (hDeviceHandle == INVALID_HANDLE_VALUE)
     {
         return FALSE;
     }
-    //WinUsb_SetPipePolicy(hDeviceHandle, pID, PIPE_TRANSFER_TIMEOUT, sizeof(ULONG), 500);
+    //
 
     BOOL bResult = FALSE;
     //BOOL oResult = FALSE;
@@ -57,20 +65,27 @@ BOOL Controller::ReadFromBulkEndpoint(WINUSB_INTERFACE_HANDLE hDeviceHandle, UCH
     overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 
 
-    bResult = WinUsb_ReadPipe(hDeviceHandle, pID, szBuffer, cbSize, &cbRead, &overlapped);       
-    if (!bResult && GetLastError() != ERROR_IO_PENDING)
-    {
-        goto done;
-    }
+    bResult = WinUsb_ReadPipe(hDeviceHandle, pID, szBuffer, cbSize, &cbRead, 0 /*&overlapped*/);     
+    if (!bResult) {
+        auto last_error = GetLastError();
+        if (last_error == ERROR_SEM_TIMEOUT) {
+            //printf("timeout id %d\n", m_controller_id);
+            goto done;
+        }
+        if (last_error != ERROR_IO_PENDING) //ERROR_SEM_TIMEOUT
+        {
+            goto done;
+        }
+    }    
 
-    BindIoCompletionCallback(hDeviceHandle, callbOverlappedCompletionRoutine, 0);
+   // BindIoCompletionCallback(hDeviceHandle, callbOverlappedCompletionRoutine, 0);
    /* oResult = WinUsb_GetOverlappedResult(hDeviceHandle, &overlapped, &cbRead, FALSE);
     auto x= GetLastError();
-    if (oResult == FALSE && (x == ERROR_IO_PENDING || x == ERROR_IO_INCOMPLETE)) {
+    if (oResult == FALSE && (x == ERROR_IO_INCOMPLETE)) {
        // printf("not ready \n ");
         goto done;
     }
-
+    */
     printf("id %d: len: %d : ", m_controller_id, cbRead);
     for (ULONG i = 0; i < cbRead; i++)
     {
@@ -78,7 +93,7 @@ BOOL Controller::ReadFromBulkEndpoint(WINUSB_INTERFACE_HANDLE hDeviceHandle, UCH
     }
     printf("\n");
     ParseMessage(szBuffer, cbRead);
-    */
+    
 done:
     LocalFree(szBuffer);
     return bResult;
@@ -101,22 +116,23 @@ BOOL Controller::ReadAndParse() {
 bool Controller::ParseMessage(const uint8_t* data, int len)
 {
     if (len == 2 && data[0] == 0x08)
-    { // Connection Status Message
+    { 
+        // Connection status
         if (data[1] == 0x00)
         {
-            printf("connection status: nothing\n");
+            printf("connection status: not connected\n");
 
             // reset the controller into neutral position on disconnect
             //msg_out->clear();
             //set_active(false);
-
+            emulated_controller->Stop();
             //return true;
         }
         else if (data[1] == 0x80)
         {
-            printf("connection status: controller connected\n");
-            set_led_real(2 + m_controller_id % 4);
-            //set_active(true);
+            printf("connection status: controller connected\n");            
+            emulated_controller->Start();
+            set_led_real(2 + m_controller_id % 4);          
         }
         else if (data[1] == 0x40)
         {
@@ -124,7 +140,8 @@ bool Controller::ParseMessage(const uint8_t* data, int len)
         }
         else if (data[1] == 0xc0)
         {
-            printf("Connection status: controller and headset connected\n");
+            printf("Connection status: controller and headset connected\n");            
+            emulated_controller->Start();
             set_led_real(2 + m_controller_id % 4);
         }
         else
@@ -132,45 +149,65 @@ bool Controller::ParseMessage(const uint8_t* data, int len)
             printf("Connection status: unknown\n");
         }
     }
-    else if (len == 29)
-    {
-        //set_active(true);
-        if (data[0] == 0x00 && data[1] == 0x0f && data[2] == 0x00 && data[3] == 0xf0)
-        { // Initial Announc Message
-            /*m_serial = (boost::format("%2x:%2x:%2x:%2x:%2x:%2x:%2x")
-                % int(data[7])
-                % int(data[8])
-                % int(data[9])
-                % int(data[10])
-                % int(data[11])
-                % int(data[12])
-                % int(data[13])).str();*/
-            m_battery_status = data[17];
-            printf("Serial: %s\n", "xxx");
-            std::cout << "Battery Status: \n" << m_battery_status;
-        }
-        else if (data[0] == 0x00 && data[1] == 0x00 && data[2] == 0x00 && data[3] == 0x13)
-        { // Battery status
-            m_battery_status = data[4];
-            printf("battery status: %d\n", data[4]);
-        }
-        else if (data[0] == 0x00 && data[1] == 0x00 && data[2] == 0x00 && data[3] == 0xf0)
-        {
-            // 0x00 0x00 0x00 0xf0 0x00 ... is send after each button
-            // press, doesn't seem to contain any information
-        }
-        else if (data[0] == 0x00 && data[1] == 0x01 && data[2] == 0x00 && data[3] == 0xf0 && data[4] == 0x00 && data[5] == 0x13)
-        {
-            printf("event \n");
-        }
-        else
-        {
-            printf("unknown: \n");
-        }
-
+    else if (data[1] == 0x0f && data[2] == 0x00 && data[3] == 0xf0)
+    { 
+        // Initial
+        /*m_serial = (boost::format("%2x:%2x:%2x:%2x:%2x:%2x:%2x")
+            % int(data[7])
+            % int(data[8])
+            % int(data[9])
+            % int(data[10])
+            % int(data[11])
+            % int(data[12])
+            % int(data[13])).str();
+         printf("Serial: %s\n", "xxx");
+            */
+        m_battery_status = data[17];
+       
+        std::cout << "Battery status: \n" << m_battery_status;
     }
-    else {
+    else if (data[1] == 0x00 && data[3] == 0x13)
+    { 
+        m_battery_status = data[4];
+        printf("Battery status: %d\n", data[4]);
+    }
+    else if (data[1] == 0x00 && data[2] == 0x00 && data[3] == 0xf0)
+    {
+        // not useful
+    }
+    else if (data[1] == 0x01 /*&& data[2] == 0x00*/ && data[3] == 0xf0)
+    {
+        emulated_controller->Start();
+
+        x360_report_t report;
+        uint16_t buttons = ((uint16_t)data[6] << 8) | data[7];
+
+        report.buttons = buttons;
+        report.z = data[8];
+        report.rz = data[9];
+        report.x = (data[11] << 8) | data[10];
+        report.y = (data[13] << 8) | data[12];
+
+        report.rx = (data[15] << 8) | data[14];
+        report.ry = (data[17] << 8) | data[16];
+
+        emulated_controller->Update(report);
+        //update
+       /* printf("update \n");
+        printf("dup : %d \n", (buttons & (uint16_t)Buttons::DPadUp) == (uint16_t)Buttons::DPadUp);
+        printf("back : %d \n", (buttons & (uint16_t)Buttons::Back) == (uint16_t)Buttons::Back);
+        printf("x : %d \n", (buttons & (uint16_t)Buttons::X) == (uint16_t)Buttons::X);
+
+      
+        printf("trigger: %d %d \n", report.z, report.rz);
+        printf("stick: x %d y %d \n", report.x, report.y);
+        printf("stick: rx %d ry %d \n", report.rx, report.ry);*/
+    }   
+    else
+    {
         printf("unknown: \n");
     }
+
+   
     return true;
 }
