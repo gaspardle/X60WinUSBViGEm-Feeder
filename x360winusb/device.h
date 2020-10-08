@@ -1,6 +1,9 @@
+#pragma once
 //
 // Define below GUIDs
 //
+#include <Windows.h>
+#include <winusb.h>
 #include <initguid.h>
 
 //

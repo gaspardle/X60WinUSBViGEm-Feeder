@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 
 struct x360_report_t
 {
@@ -14,6 +15,7 @@ struct x360_report_t
     int16_t rx;
     int16_t ry;
 };
+
 
 enum class Buttons : uint16_t {
     RT = 0x8000,

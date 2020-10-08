@@ -1,5 +1,7 @@
-#include "pch.h"
 
+#include "device.h"
+
+#include <strsafe.h>
 #include <cfgmgr32.h>
 
 HRESULT
@@ -73,8 +75,7 @@ Return value:
         return hr;
     }
 
-    bResult = WinUsb_Initialize(DeviceData->DeviceHandle,
-                                &DeviceData->WinusbHandle);
+    bResult = WinUsb_Initialize(DeviceData->DeviceHandle, &DeviceData->WinusbHandle);
 
     if (FALSE == bResult) {
 

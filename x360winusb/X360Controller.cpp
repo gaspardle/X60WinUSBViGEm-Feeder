@@ -1,17 +1,15 @@
 //#include <winusb.h>
-
-#include "pch.h"
 #include <iostream>
 #include <thread>
-#include <ViGEm/Client.h>
-#include "Xbox.h"
-//#include "device.h"
 
-Controller::Controller(WINUSB_INTERFACE_HANDLE hDev, int controller_id):
-m_interface(hDev),
-m_controller_id(controller_id)
+#include "X360Controller.h"
+#include "XboxControllerValues.h"
+
+X360Controller::X360Controller(WINUSB_INTERFACE_HANDLE hDev, int controller_id) :
+    m_interface(hDev),
+    m_controller_id(controller_id)
 {
-    int bResult;    
+    int bResult;
     bResult = QueryDeviceEndpoints(hDev, &m_endpoints);
 
     ULONG timeout = 60;
@@ -19,39 +17,30 @@ m_controller_id(controller_id)
     WinUsb_SetPipePolicy(hDev, m_endpoints.PipeInId, PIPE_TRANSFER_TIMEOUT, sizeof(ULONG), &timeout);
     WinUsb_SetPipePolicy(hDev, m_endpoints.PipeInId, RAW_IO, sizeof(ULONG), &raw);
 
-    emulated_controller = new VigemController(controller_id,     
-        [&](uint8_t large, uint8_t small, uint8_t led) {
-            set_rumble(large, small);
-            set_led(led + 2);
+    emulated_controller = new VigemController(controller_id,
+        [&](uint8_t largemotor, uint8_t smallmotor, uint8_t led) {
+            printf("set lm: %d sm: %d led: %d\n", largemotor, smallmotor, led);
+            SetRumble(largemotor, smallmotor);
+            SetLED(led + 2);
         }
-     );
+    );
 }
 
-Controller::~Controller()
+X360Controller::~X360Controller()
 {
     emulated_controller->Stop();
     delete emulated_controller;
     WinUsb_Free(m_interface);
 }
 
-UINT Controller::get_controller_id() {
-    return m_controller_id;
-}
-
-VOID WINAPI callbOverlappedCompletionRoutine(DWORD dwErrorCode, DWORD dwNumberOfBytesTransferred, LPOVERLAPPED pOverlapped) {
- auto c = pOverlapped;
- c=c;
-    printf("callb %d  %d \n ", dwErrorCode, dwNumberOfBytesTransferred);
-}
-
-BOOL Controller::ReadFromBulkEndpoint(WINUSB_INTERFACE_HANDLE hDeviceHandle, UCHAR pID, ULONG cbSize)
+BOOL X360Controller::ReadFromBulkEndpoint(WINUSB_INTERFACE_HANDLE hDeviceHandle, UCHAR pID)
 {
     if (hDeviceHandle == INVALID_HANDLE_VALUE)
     {
         return FALSE;
     }
     //
-
+    ULONG cbSize = 32;
     BOOL bResult = FALSE;
     //BOOL oResult = FALSE;
     UCHAR* szBuffer = (UCHAR*)LocalAlloc(LPTR, sizeof(UCHAR) * cbSize);
@@ -62,7 +51,7 @@ BOOL Controller::ReadFromBulkEndpoint(WINUSB_INTERFACE_HANDLE hDeviceHandle, UCH
     //overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 
 
-    bResult = WinUsb_ReadPipe(hDeviceHandle, pID, szBuffer, cbSize, &cbRead, 0 /*&overlapped*/);     
+    bResult = WinUsb_ReadPipe(hDeviceHandle, pID, szBuffer, cbSize, &cbRead, 0 /*&overlapped*/);
     if (!bResult) {
         auto last_error = GetLastError();
         if (last_error == ERROR_SEM_TIMEOUT) {
@@ -73,76 +62,76 @@ BOOL Controller::ReadFromBulkEndpoint(WINUSB_INTERFACE_HANDLE hDeviceHandle, UCH
         {
             goto done;
         }
-    }    
+    }
 
-   // BindIoCompletionCallback(hDeviceHandle, callbOverlappedCompletionRoutine, 0);
-   /* oResult = WinUsb_GetOverlappedResult(hDeviceHandle, &overlapped, &cbRead, FALSE);
-    auto x= GetLastError();
-    if (oResult == FALSE && (x == ERROR_IO_INCOMPLETE)) {
-       // printf("not ready \n ");
-        goto done;
-    }
-    */
-  /*  printf("id %d: len: %d : ", m_controller_id, cbRead);
-    for (ULONG i = 0; i < cbRead; i++)
-    {
-        printf("%02X ", szBuffer[i]);
-    }
-    printf("\n");*/
+    // BindIoCompletionCallback(hDeviceHandle, callbOverlappedCompletionRoutine, 0);
+    /* oResult = WinUsb_GetOverlappedResult(hDeviceHandle, &overlapped, &cbRead, FALSE);
+     auto x= GetLastError();
+     if (oResult == FALSE && (x == ERROR_IO_INCOMPLETE)) {
+        // printf("not ready \n ");
+         goto done;
+     }
+     */
+     /*  printf("id %d: len: %d : ", m_controller_id, cbRead);
+       for (ULONG i = 0; i < cbRead; i++)
+       {
+           printf("%02X ", szBuffer[i]);
+       }
+       printf("\n");*/
     ParseMessage(szBuffer, cbRead);
-    
+
 done:
     LocalFree(szBuffer);
     return bResult;
 
 }
-//
-void Controller::set_rumble(uint8_t left, uint8_t right)
-{
-    BOOL bResult = TRUE;
-    ULONG cbTransferred = 0;
-    uint8_t rumblecmd[] = { 0x00, 0x01, 0x0f, 0xc0, 0x00, left, right, 0x00, 0x00, 0x00, 0x00, 0x00 };
-    bResult = WinUsb_WritePipe(m_interface, m_endpoints.PipeOutId, rumblecmd, sizeof(rumblecmd), &cbTransferred, 0);    
-}
 
-
-void Controller::set_led(uint8_t status)
+void X360Controller::SetRumble(uint8_t leftMotorSpeed, uint8_t rightMotorSpeed)
 {
-    printf("set_led: %d\n", status);
-    BOOL bResult = TRUE;
+    BOOL bResult = FALSE;
     ULONG cbTransferred = 0;
 
-    uint8_t ledcmd[] = { 0x00, 0x00, 0x08, static_cast<uint8_t>(0x40 + (status % 0x0e)), 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-    bResult = WinUsb_WritePipe(m_interface, m_endpoints.PipeOutId, ledcmd, sizeof(ledcmd), &cbTransferred, 0);
+    uint8_t cmd[] = { 0x00, 0x01, 0x0f, 0xc0, 0x00, leftMotorSpeed, rightMotorSpeed, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    bResult = WinUsb_WritePipe(m_interface, m_endpoints.PipeOutId, cmd, sizeof(cmd), &cbTransferred, 0);
 }
 
-BOOL Controller::ReadAndParse() {
-    return ReadFromBulkEndpoint(m_interface, m_endpoints.PipeInId, 32);
-}
 
-bool Controller::ParseMessage(const uint8_t* data, int len)
+void X360Controller::SetLED(uint8_t status)
 {
-   
-    if (len == 2 && data[0] == 0x08)
-    {   
+    BOOL bResult = FALSE;
+    ULONG cbTransferred = 0;
+ 
+    uint8_t cmd[] = { 0x00, 0x00, 0x08, static_cast<uint8_t>(0x40 + (status % 0x0e)), 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    bResult = WinUsb_WritePipe(m_interface, m_endpoints.PipeOutId, cmd, sizeof(cmd), &cbTransferred, 0);
+}
+
+BOOL X360Controller::ReadAndParse() {
+    return ReadFromBulkEndpoint(m_interface, m_endpoints.PipeInId);
+}
+
+bool X360Controller::ParseMessage(const uint8_t* data, int len)
+{
+
+    if (data[0] == 0x08)
+    {
         // Connection status
         if (data[1] == 0x00)
         {
             printf("connection status: not connected\n");
             emulated_controller->Stop();
         }
-        else if (data[1] == 0x80)
-        {
-            printf("connection status: controller connected\n");            
-            emulated_controller->Start();       
-        }
         else if (data[1] == 0x40)
         {
             printf("Connection status: headset connected\n");
         }
+        else if (data[1] == 0x80)
+        {
+            printf("connection status: controller connected\n");
+            emulated_controller->Start();
+        }
         else if (data[1] == 0xc0)
         {
-            printf("Connection status: controller and headset connected\n");            
+            printf("Connection status: controller and headset connected\n");
             emulated_controller->Start();
         }
         else
@@ -151,14 +140,12 @@ bool Controller::ParseMessage(const uint8_t* data, int len)
         }
     }
     else if (data[1] == 0x0f && data[2] == 0x00 && data[3] == 0xf0)
-    { 
-        m_battery_status = data[17];       
-        printf("Battery status0f: %d\n", m_battery_status);
+    {
+        printf("Battery status: %d\n", data[17]);
     }
     else if (data[1] == 0x00 && data[3] == 0x13)
-    { 
-        m_battery_status = data[4];
-        printf("Battery status00: %d\n", m_battery_status);
+    {
+        printf("Battery status: %d\n", data[4]);
     }
     else if (data[1] == 0x00 && data[2] == 0x00 && data[3] == 0xf0)
     {
@@ -177,27 +164,24 @@ bool Controller::ParseMessage(const uint8_t* data, int len)
         report.rz = data[9];
         report.x = (data[11] << 8) | data[10];
         report.y = (data[13] << 8) | data[12];
-
         report.rx = (data[15] << 8) | data[14];
         report.ry = (data[17] << 8) | data[16];
 
         emulated_controller->Update(report);
         //update
-       /* printf("update \n");
+        if ((buttons & (uint16_t)Buttons::XboxGuide) == (uint16_t)Buttons::XboxGuide) {
+            printf("g\n");
+        }
+        /*printf("update \n");
         printf("dup : %d \n", (buttons & (uint16_t)Buttons::DPadUp) == (uint16_t)Buttons::DPadUp);
         printf("back : %d \n", (buttons & (uint16_t)Buttons::Back) == (uint16_t)Buttons::Back);
         printf("x : %d \n", (buttons & (uint16_t)Buttons::X) == (uint16_t)Buttons::X);
 
-      
+
         printf("trigger: %d %d \n", report.z, report.rz);
         printf("stick: x %d y %d \n", report.x, report.y);
         printf("stick: rx %d ry %d \n", report.rx, report.ry);*/
-    }   
-    else
-    {
-        printf("unknown command \n");
     }
 
-   
     return true;
 }

@@ -28,13 +28,13 @@
     <ClInclude Include="main.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Controller.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Xbox.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="VigemController.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="X360Controller.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="XboxControllerValues.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -45,10 +45,10 @@
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Controller.cpp">
+    <ClCompile Include="VigemController.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="VigemController.cpp">
+    <ClCompile Include="X360Controller.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

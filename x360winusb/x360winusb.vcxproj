@@ -35,18 +35,18 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Controller.cpp" />
+    <ClCompile Include="X360Controller.cpp" />
     <ClCompile Include="device.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="VigemController.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Controller.h" />
+    <ClInclude Include="X360Controller.h" />
     <ClInclude Include="device.h" />
     <ClInclude Include="main.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="VigemController.h" />
-    <ClInclude Include="Xbox.h" />
+    <ClInclude Include="XboxControllerValues.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{58553916-A0EC-4D51-A37F-3E36E9C307E9}</ProjectGuid>

@@ -1,14 +1,14 @@
 
-#include "pch.h"
-#include "VigemController.h"
-
-#include <functional>
+//#include "pch.h"
+#include <Windows.h>
 #include <iostream>
 #include <mutex>
 
-VigemController::VigemController(int controller_id, NotifFunc cb):
+#include "VigemController.h"
+
+VigemController::VigemController(int controller_id, NotifFunc cb) :
     connected(false),
-    m_controller_id(controller_id),    
+    m_controller_id(controller_id),
     notification_callback(cb)
 {
 
@@ -17,17 +17,17 @@ VigemController::VigemController(int controller_id, NotifFunc cb):
 }
 
 bool VigemController::Start()
-{   
-    if(connected){
+{
+    if (connected) {
         return false;
     }
-    
+
     auto ret = vigem_connect(client);
     if (!VIGEM_SUCCESS(ret) && ret != VIGEM_ERROR_BUS_ALREADY_CONNECTED) {
         printf("vigem_connect ERROR %d", ret);
         return false;
     }
-       
+
     ret = vigem_target_add(client, target_x360);
     if (!VIGEM_SUCCESS(ret)) {
         printf("Can't add target device ERROR %d", ret);
@@ -39,12 +39,25 @@ bool VigemController::Start()
 
     connected = true;
 
-    ret = vigem_target_x360_register_notification(client, target_x360, reinterpret_cast<PFN_VIGEM_X360_NOTIFICATION>(&VigemController::notification), this);
-       
-    return false;
+    ret = vigem_target_x360_register_notification(client, target_x360, reinterpret_cast<PFN_VIGEM_X360_NOTIFICATION>(&VigemController::OnNotification), this);
+    if (!VIGEM_SUCCESS(ret)) {
+        printf("Can't add register target notification ERROR %d", ret);
+        return false;
+    }
+    return true;
 }
 
-VOID CALLBACK VigemController::notification(
+VigemController::~VigemController()
+{
+    if (connected) {
+        Stop();
+    }
+    vigem_target_free(target_x360);
+
+    vigem_free(client);
+}
+
+VOID CALLBACK VigemController::OnNotification(
     PVIGEM_CLIENT Client,
     PVIGEM_TARGET Target,
     UCHAR LargeMotor,
@@ -52,13 +65,14 @@ VOID CALLBACK VigemController::notification(
     UCHAR LedNumber,
     LPVOID UserData
 )
-{    
+{
     VigemController* inst = (VigemController*)UserData;
     inst->notification_callback(LargeMotor, SmallMotor, LedNumber);
 }
+
 bool VigemController::Stop()
 {
-    if(connected){
+    if (connected) {
         vigem_target_x360_unregister_notification(target_x360);
         vigem_target_remove(client, target_x360);
     }
@@ -66,20 +80,10 @@ bool VigemController::Stop()
     return true;
 }
 
-VigemController::~VigemController()
-{    
-    if (connected) {
-        Stop();
-    }    
-    vigem_target_free(target_x360);
-
-    vigem_free(client);
-}
-
-bool VigemController::Update(x360_report_t& nativereport)
+bool VigemController::Update(x360_report_t &nativereport)
 {
     if (!connected) {
-        return false;    
+        return false;
     }
 
     XUSB_REPORT report;
