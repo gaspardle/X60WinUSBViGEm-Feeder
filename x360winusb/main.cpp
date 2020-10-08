@@ -1,13 +1,9 @@
 #include <Windows.h>
 
-
 #include <winusb.h>
 //#include <usb.h>
-
 #include <cstdio>
 #include <cstdint>
-#include "main.h"
-#include <iostream>
 #include <thread>
 #include <ViGEm\Client.h>
 #include "X360Controller.h"
@@ -27,7 +23,7 @@ BOOL WINAPI CtrlHandler(DWORD fdwCtrlType)
     {
     case CTRL_C_EVENT:
     case CTRL_CLOSE_EVENT:
-        std::cout << "Exiting...\n\n";
+        std::printf("Exiting...\n\n");
         processInputs = false;
         Sleep(10000);
         return TRUE;
@@ -37,8 +33,7 @@ BOOL WINAPI CtrlHandler(DWORD fdwCtrlType)
     }
 }
 
-LONG __cdecl wmain(LONG Argc, LPTSTR* Argv)
-
+int wmain(int argc, wchar_t* argv[])
 {
     DEVICE_DATA           deviceData;
     HRESULT               hr;
@@ -49,8 +44,8 @@ LONG __cdecl wmain(LONG Argc, LPTSTR* Argv)
     BOOL                  noDevice;
     ULONG                 lengthReceived;
 
-    UNREFERENCED_PARAMETER(Argc);
-    UNREFERENCED_PARAMETER(Argv);
+    UNREFERENCED_PARAMETER(argc);
+    UNREFERENCED_PARAMETER(argv);
 
     //
     // Find a device connected to the system that has WinUSB installed using our
@@ -61,10 +56,10 @@ LONG __cdecl wmain(LONG Argc, LPTSTR* Argv)
     if (FAILED(hr)) {
 
         if (noDevice) {
-            std::cout << "Receiver not connected or driver not installed\n";
+            std::printf("Receiver not connected or driver not installed\n");
         }
         else {
-            std::cout << "Failed looking for device, HRESULT 0x\n" << std::hex << hr;
+            std::printf("Failed looking for device, HRESULT 0x%x\n", hr);
         }
 
         return 0;
@@ -81,9 +76,11 @@ LONG __cdecl wmain(LONG Argc, LPTSTR* Argv)
         sizeof(deviceDesc),
         &lengthReceived);
 
-    if (FALSE == bResult || lengthReceived != sizeof(deviceDesc)) {
-
-        std::cout << "WinUsb_GetDescriptor: Error among LastError " << (FALSE == bResult ? GetLastError() : 0)  << " or lengthReceived" << lengthReceived << std::endl ;
+    if (FALSE == bResult || lengthReceived != sizeof(deviceDesc)) 
+    {
+        std::printf("WinUsb_GetDescriptor: Error among LastError %d or lengthReceived %d\n",
+            FALSE == bResult ? GetLastError() : 0,
+            lengthReceived);
         CloseDevice(&deviceData);
         return 0;
     }
